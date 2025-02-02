@@ -76,7 +76,7 @@
     <h1>Random Subset Generator</h1>
     <div class="upload-section">
         <input type="file" id="fileInput" accept=".csv">
-        <div class="file-instruction"> Please upload a .csv file containing the data</div>
+        <div class="file-instruction">Please upload a .csv file containing the data</div>
     </div>
     <p>Enter the size of the subset:</p>
     <input type="number" id="subsetSize" min="1" value="#">
@@ -87,6 +87,7 @@
     <script>
         let previousSubset = null;
         let csvData = null;
+        let headers = null;
 
         function rand(lower, higher) {
             return Math.floor(Math.random() * (higher - lower + 1)) + lower;
@@ -103,30 +104,27 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(event) {
-                    csvData = parseCSV(event.target.result);
+                    const result = parseCSV(event.target.result);
+                    csvData = result.data;
+                    headers = result.headers;
                 };
                 reader.readAsText(file);
             }
         });
 
         function parseCSV(csvText) {
-            const lines = csvText.split('\n');
-            const headers = lines[0].trim().split(',');
+            const lines = csvText.split('\n').map(line => line.trim()).filter(line => line);
+            const headers = lines[0].split(',').map(header => header.trim());
             const data = [];
-            
             for (let i = 1; i < lines.length; i++) {
-                const line = lines[i].trim();
-                if (line) {
-                    const values = line.split(',');
-                    data.push({
-                        Number1: parseFloat(values[0]),
-                        Number2: parseFloat(values[1]),
-                        String: values[2],
-                        Boolean: values[3].toLowerCase() === 'true'
-                    });
-                }
+                const values = lines[i].split(',');
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header] = values[index] ? values[index].trim() : '';
+                });
+                data.push(row);
             }
-            return data;
+            return { headers, data };
         }
 
         function generateRandomSubset() {
@@ -134,14 +132,11 @@
                 alert("Please upload a CSV file first!");
                 return;
             }
-
             const subsetSize = parseInt(document.getElementById('subsetSize').value);
-
             if (isNaN(subsetSize) || subsetSize < 1 || subsetSize > csvData.length) {
                 alert(`Please enter a valid subset size between 1 and ${csvData.length}`);
                 return;
             }
-
             let subset;
             do {
                 subset = [];
@@ -151,7 +146,6 @@
                 }
                 subset = Array.from(indices).map(index => csvData[index]);
             } while (arraysEqual(subset, previousSubset));
-
             previousSubset = subset;
             displayResult(subset);
         }
@@ -159,25 +153,22 @@
         function displayResult(subset) {
             const resultDiv = document.getElementById('resultDisplay');
             const table = document.createElement('table');
-            
             const headerRow = document.createElement('tr');
-            ['Number1', 'Number2', 'String', 'Boolean'].forEach(header => {
+            headers.forEach(header => {
                 const th = document.createElement('th');
                 th.textContent = header;
                 headerRow.appendChild(th);
             });
             table.appendChild(headerRow);
-
             subset.forEach(row => {
                 const tr = document.createElement('tr');
-                Object.values(row).forEach(value => {
+                headers.forEach(header => {
                     const td = document.createElement('td');
-                    td.textContent = typeof value === 'boolean' ? value.toString() : value;
+                    td.textContent = row[header];
                     tr.appendChild(td);
                 });
                 table.appendChild(tr);
             });
-
             resultDiv.innerHTML = '';
             resultDiv.appendChild(table);
         }
